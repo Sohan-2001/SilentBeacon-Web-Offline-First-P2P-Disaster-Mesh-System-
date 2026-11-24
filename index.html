@@ -4,24 +4,41 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="theme-color" content="#080c14" />
+    <meta name="theme-color" content="#000000" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="100% offline, local-first disaster coordination system with zero cellular or internet infrastructure." />
     <link rel="manifest" href="/manifest.json" />
     <title>SilentBeacon | Offline P2P Emergency Mesh</title>
   </head>
-  <body class="bg-[#080c14] text-slate-100 overflow-x-hidden selection:bg-red-500 selection:text-white">
+  <body class="bg-slate-50 dark:bg-black text-slate-900 dark:text-slate-100 overflow-x-hidden selection:bg-red-500 selection:text-white">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Register service worker for offline functionality
+      // Register service worker and warm up cache for 100% offline readiness
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').then(
-            (reg) => console.log('SilentBeacon SW registered:', reg.scope),
-            (err) => console.warn('SilentBeacon SW registration failed:', err)
-          );
+          navigator.serviceWorker.register('/sw.js').then((reg) => {
+            console.log('SilentBeacon SW registered:', reg.scope);
+          }).catch((err) => {
+            console.warn('SilentBeacon SW registration failed:', err);
+          });
+
+          // Proactively warm up CacheStorage with all live page assets on first load
+          if ('caches' in window) {
+            caches.open('silentbeacon-v1').then((cache) => {
+              cache.addAll(['/', '/index.html', '/manifest.json', '/favicon.svg']).catch(() => {});
+              // Cache all bundled scripts and stylesheets rendered in the DOM
+              setTimeout(() => {
+                document.querySelectorAll('script[src], link[rel="stylesheet"]').forEach((el) => {
+                  const url = el.src || el.href;
+                  if (url && url.startsWith(window.location.origin)) {
+                    cache.add(url).catch(() => {});
+                  }
+                });
+              }, 500);
+            });
+          }
         });
       }
     </script>

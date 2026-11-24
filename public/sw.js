@@ -29,52 +29,56 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Cache-first for static assets, network-first with cache fallback for HTML
+// Cache-first for all assets; network fallback with automatic dynamic caching
 self.addEventListener('fetch', (event) => {
-  // Only handle GET requests
   if (event.request.method !== 'GET') return;
 
   const url = new URL(event.request.url);
-
-  // Skip chrome-extension or external protocols
   if (!url.protocol.startsWith('http')) return;
 
+  // Handle navigation requests (opening the site offline)
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cached = await caches.match('/index.html') || await caches.match('/');
+          if (cached) return cached;
+          return new Response('Offline: SilentBeacon is ready.', {
+            headers: { 'Content-Type': 'text/html' }
+          });
+        })
+    );
+    return;
+  }
+
+  // Handle assets (JS, CSS, SVGs, Fonts)
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Return cached and update in background if online
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse.clone());
-            });
+        // Return cached immediately, fetch fresh copy in background if online
+        fetch(event.request).then((freshResponse) => {
+          if (freshResponse && freshResponse.status === 200) {
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, freshResponse));
           }
-        }).catch(() => {
-          // Offline, cachedResponse already returned
-        });
+        }).catch(() => {});
         return cachedResponse;
       }
 
-      // Not in cache, try network
+      // If not in cache, fetch and store
       return fetch(event.request).then((networkResponse) => {
         if (!networkResponse || networkResponse.status !== 200) {
           return networkResponse;
         }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
-        });
+        const copy = networkResponse.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         return networkResponse;
-      }).catch(() => {
-        // If offline and requesting navigation, return cached index.html
-        if (event.request.mode === 'navigate') {
-          return caches.match('/index.html') || caches.match('/');
-        }
-        return new Response('Offline: Resource not available', {
-          status: 503,
-          statusText: 'Service Unavailable',
-          headers: new Headers({ 'Content-Type': 'text/plain' })
-        });
       });
     })
   );
