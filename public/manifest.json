@@ -1,0 +1,18 @@
+{
+  "short_name": "SilentBeacon",
+  "name": "SilentBeacon - Offline P2P Emergency Mesh",
+  "description": "100% offline, local-first disaster coordination system with zero cellular or internet infrastructure.",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#080c14",
+  "background_color": "#080c14",
+  "orientation": "portrait"
+}
